@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable react-hooks/exhaustive-deps */
-
 import { useEffect, useState } from "react";
 
 type PublicCall =
@@ -16,10 +14,30 @@ type PublicCall =
       timestamp: number;
     };
 
-// Tipo mínimo só com o que usamos do player
-type YouTubePlayer = {
+// Tipo mínimo que precisamos do player do YouTube
+type YTPlayer = {
   setVolume: (volume: number) => void;
 };
+
+declare global {
+  interface Window {
+    YT?: {
+      Player: new (
+        elementId: string,
+        options: {
+          height?: string;
+          width?: string;
+          videoId?: string;
+          playerVars?: Record<string, string | number | boolean>;
+          events?: {
+            onReady?: () => void;
+          };
+        }
+      ) => YTPlayer;
+    };
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
 
 export default function PublicoPage() {
   const [message, setMessage] = useState("Aguardando chamada...");
@@ -27,15 +45,15 @@ export default function PublicoPage() {
     "Por favor, aguarde ser chamado no painel."
   );
   const [videoId, setVideoId] = useState("");
-  const [ytPlayer, setYtPlayer] = useState<YouTubePlayer | null>(null);
+  const [ytPlayer, setYtPlayer] = useState<YTPlayer | null>(null);
 
-  // 🔵 1. Função que aplica a chamada + ducking de volume
+  // 🔵 1. Função que aplica a chamada + ducking
   const applyCall = (data: PublicCall) => {
     if (data.type === "CLEAR") {
       setMessage("Aguardando chamada...");
       setSubtitle("Por favor, aguarde ser chamado no painel.");
 
-      if (ytPlayer && ytPlayer.setVolume) {
+      if (ytPlayer) {
         ytPlayer.setVolume(100);
       }
       return;
@@ -45,40 +63,43 @@ export default function PublicoPage() {
     setMessage(`Paciente ${data.name}`);
     setSubtitle(`Dirija-se ao consultório do(a) ${data.doctorName}.`);
 
-    // 🔊 DUCKING – abaixa volume
-    if (ytPlayer && ytPlayer.setVolume) {
+    // 🔊 DUCKING
+    if (ytPlayer) {
       ytPlayer.setVolume(20);
-    }
 
-    // Volta o volume em 10 segundos
-    setTimeout(() => {
-      if (ytPlayer && ytPlayer.setVolume) {
-        ytPlayer.setVolume(100);
-      }
-    }, 10000);
+      // Restaurar volume em 10 segundos
+      setTimeout(() => {
+        if (ytPlayer) {
+          ytPlayer.setVolume(100);
+        }
+      }, 10000);
+    }
   };
 
-  // 🔵 2. Carrega última chamada e vídeo + ouve eventos entre abas
+  // 🔵 2. Carrega última chamada e vídeo + ouve eventos de storage
   useEffect(() => {
     const savedCall = localStorage.getItem("publicCall");
     if (savedCall) {
       try {
-        applyCall(JSON.parse(savedCall));
+        const parsed: PublicCall = JSON.parse(savedCall) as PublicCall;
+        applyCall(parsed);
       } catch {
         // ignora erro de parse
       }
     }
 
     const savedVideo = localStorage.getItem("videoId");
-    if (savedVideo) setVideoId(savedVideo);
+    if (savedVideo) {
+      setVideoId(savedVideo);
+    }
 
     const handleStorage = (event: StorageEvent) => {
       if (event.key === "publicCall" && event.newValue) {
         try {
-          applyCall(JSON.parse(event.newValue));
+          const parsed: PublicCall = JSON.parse(event.newValue) as PublicCall;
+          applyCall(parsed);
         } catch {
           // ignora erro de parse
-          return;
         }
       }
 
@@ -89,23 +110,17 @@ export default function PublicoPage() {
 
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ytPlayer]); // ytPlayer entra aqui porque o ducking depende dele
 
-  // 🔵 3. Carregar API do YouTube e criar o player quando tiver videoId
+  // 🔵 3. Carregar API do YouTube e criar o player
   useEffect(() => {
     if (!videoId) return;
 
-    // Injeta script da API uma vez
-    const existing = document.getElementById("youtube-api");
-    if (!existing) {
-      const tag = document.createElement("script");
-      tag.id = "youtube-api";
-      tag.src = "https://www.youtube.com/iframe_api";
-      document.body.appendChild(tag);
-    }
+    const createPlayer = () => {
+      if (!window.YT || !window.YT.Player) return;
 
-    (window as any).onYouTubeIframeAPIReady = () => {
-      const player = new (window as any).YT.Player("player", {
+      const player = new window.YT.Player("player", {
         height: "100%",
         width: "100%",
         videoId,
@@ -119,11 +134,28 @@ export default function PublicoPage() {
         events: {
           onReady: () => {
             player.setVolume(100);
-            setYtPlayer(player as YouTubePlayer);
+            setYtPlayer(player);
           },
         },
       });
     };
+
+    // Carrega script da API do YouTube se ainda não existir
+    const existingScript = document.getElementById("youtube-api");
+    if (!existingScript) {
+      const tag = document.createElement("script");
+      tag.id = "youtube-api";
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.body.appendChild(tag);
+    }
+
+    if (window.YT && window.YT.Player) {
+      createPlayer();
+    } else {
+      window.onYouTubeIframeAPIReady = () => {
+        createPlayer();
+      };
+    }
   }, [videoId]);
 
   return (
