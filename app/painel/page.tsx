@@ -2,127 +2,178 @@
 
 import { useEffect, useState, useRef } from "react";
 
+type DoctorTitle = "Dr." | "Dra.";
+
 type Patient = {
   id: number;
   name: string;
 };
 
+type PublicCall =
+  | { type: "CALL"; name: string; doctorName: string; timestamp: number }
+  | { type: "CLEAR"; timestamp: number };
+
+const STORAGE_KEYS = {
+  doctorName: "doctorName",
+  doctorTitle: "doctorTitle",
+  patients: "patients",
+  publicCall: "publicCall",
+  videoId: "videoId",
+} as const;
+
+const getPrefix = (title: DoctorTitle) =>
+  title === "Dra." ? "Doutora" : "Doutor";
+
+const getArticle = (title: DoctorTitle) =>
+  title === "Dra." ? "da" : "do";
+
 export default function PainelMedico() {
   const [doctorName, setDoctorName] = useState("");
-  const [doctorTitle, setDoctorTitle] = useState<"Dr." | "Dra.">("Dr.");
+  const [doctorTitle, setDoctorTitle] = useState<DoctorTitle>("Dr.");
   const [patientName, setPatientName] = useState("");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [currentCallId, setCurrentCallId] = useState<number | null>(null);
-  const [videoLink, setVideoLink] = useState("");
 
-  const repeatRef = useRef<NodeJS.Timeout | null>(null);
+  // em browser, setInterval retorna number, não NodeJS.Timeout
+  const repeatRef = useRef<number | null>(null);
 
+  // 🔹 Carrega dados salvos
   useEffect(() => {
-    const n = localStorage.getItem("doctorName");
-    if (n) setDoctorName(n);
+    if (typeof window === "undefined") return;
 
-    const t = localStorage.getItem("doctorTitle");
-    if (t === "Dr." || t === "Dra.") setDoctorTitle(t);
+    const storedName = localStorage.getItem(STORAGE_KEYS.doctorName);
+    const storedTitle = localStorage.getItem(
+      STORAGE_KEYS.doctorTitle
+    ) as DoctorTitle | null;
+    const savedPatients = localStorage.getItem(STORAGE_KEYS.patients);
 
-    const savedPatients = localStorage.getItem("patients");
-    if (savedPatients) setPatients(JSON.parse(savedPatients));
+    if (storedName) setDoctorName(storedName);
+    if (storedTitle === "Dr." || storedTitle === "Dra.") {
+      setDoctorTitle(storedTitle);
+    }
 
-    const savedVideo = localStorage.getItem("videoId");
-    if (savedVideo) setVideoLink(savedVideo);
+    if (savedPatients) {
+      try {
+        setPatients(JSON.parse(savedPatients) as Patient[]);
+      } catch {
+        setPatients([]);
+      }
+    }
   }, []);
 
+  // 🔹 Salva lista de pacientes
   useEffect(() => {
-    localStorage.setItem("patients", JSON.stringify(patients));
+    if (typeof window === "undefined") return;
+    localStorage.setItem(STORAGE_KEYS.patients, JSON.stringify(patients));
   }, [patients]);
 
+  // 🔊 Fala em voz alta
   const speak = (text: string) => {
+    if (typeof window === "undefined") return;
+    if (!("speechSynthesis" in window)) return;
+
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = "pt-BR";
-    speechSynthesis.speak(utter);
+    window.speechSynthesis.speak(utter);
   };
 
-  const getPrefix = () => (doctorTitle === "Dra." ? "Doutora" : "Doutor");
-  const getArticle = () => (doctorTitle === "Dra." ? "da" : "do");
+  const sendPublicCall = (payload: PublicCall) => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(STORAGE_KEYS.publicCall, JSON.stringify(payload));
+  };
+
+  const startRepeat = (text: string) => {
+    if (typeof window === "undefined") return;
+
+    if (repeatRef.current !== null) {
+      window.clearInterval(repeatRef.current);
+    }
+    repeatRef.current = window.setInterval(() => speak(text), 30_000);
+  };
+
+  const stopRepeat = () => {
+    if (typeof window === "undefined") return;
+
+    if (repeatRef.current !== null) {
+      window.clearInterval(repeatRef.current);
+      repeatRef.current = null;
+    }
+  };
 
   // 🔵 Chamar paciente
   const callPatient = (id: number) => {
     const patient = patients.find((p) => p.id === id);
     if (!patient) return;
 
-    const prefix = getPrefix();
-    const article = getArticle();
+    const prefix = getPrefix(doctorTitle);
+    const article = getArticle(doctorTitle);
 
     const text = `Paciente ${patient.name}, dirija-se ao consultório ${article} ${prefix} ${doctorName}.`;
-    speak(text);
 
+    speak(text);
+    startRepeat(text);
     setCurrentCallId(id);
 
-    // 🔥 ENVIA PARA O PAINEL PÚBLICO
-    localStorage.setItem(
-      "publicCall",
-      JSON.stringify({
-        type: "CALL",
-        name: patient.name,
-        doctorName: `${doctorTitle} ${doctorName}`,
-        timestamp: Date.now(),
-      })
-    );
-
-    if (repeatRef.current) clearInterval(repeatRef.current);
-    repeatRef.current = setInterval(() => speak(text), 30000);
+    sendPublicCall({
+      type: "CALL",
+      name: patient.name,
+      doctorName: `${doctorTitle} ${doctorName}`,
+      timestamp: Date.now(),
+    });
   };
 
   // 🟢 Confirmar entrada
   const confirmEntry = () => {
-    if (repeatRef.current) clearInterval(repeatRef.current);
+    stopRepeat();
     setCurrentCallId(null);
 
-    localStorage.setItem(
-      "publicCall",
-      JSON.stringify({
-        type: "CLEAR",
-        timestamp: Date.now(),
-      })
-    );
+    sendPublicCall({
+      type: "CLEAR",
+      timestamp: Date.now(),
+    });
   };
 
   // ➕ Adicionar paciente
   const addPatient = () => {
-    if (!patientName.trim()) return;
+    const trimmed = patientName.trim();
+    if (!trimmed) return;
 
-    setPatients([...patients, { id: Date.now(), name: patientName.trim() }]);
-
+    setPatients((prev) => [...prev, { id: Date.now(), name: trimmed }]);
     setPatientName("");
   };
 
   // 🚮 Excluir paciente
   const deletePatient = (id: number) => {
-    setPatients(patients.filter((p) => p.id !== id));
+    setPatients((prev) => prev.filter((p) => p.id !== id));
+
+    if (currentCallId === id) {
+      confirmEntry();
+    }
   };
 
-  // 🔵 Configurar vídeo
+  // 🔵 Configurar vídeo (só salva o ID no localStorage)
   const handleVideoChange = (url: string) => {
-    const match = url.match(/v=([^&]+)/);
-    if (match) {
-      const id = match[1];
-      setVideoLink(id);
-      localStorage.setItem("videoId", id);
+    if (typeof window === "undefined") return;
 
-      // Forçar update no painel público
-      window.dispatchEvent(
-        new StorageEvent("storage", {
-          key: "videoId",
-          newValue: id,
-        })
-      );
-    }
+    // aceita link normal e youtu.be
+    const match =
+      url.match(/v=([^&]+)/) ?? url.match(/youtu\.be\/([^?]+)/);
+
+    if (!match) return;
+
+    const id = match[1];
+    localStorage.setItem(STORAGE_KEYS.videoId, id);
   };
 
   // 🔴 Logout
   const logout = () => {
-    localStorage.removeItem("doctorName");
-    localStorage.removeItem("doctorTitle");
-    window.location.href = "/Login";
+    if (typeof window === "undefined") return;
+
+    localStorage.removeItem(STORAGE_KEYS.doctorName);
+    localStorage.removeItem(STORAGE_KEYS.doctorTitle);
+
+    // rota em minúsculo
+    window.location.href = "/login";
   };
 
   return (
@@ -184,7 +235,9 @@ export default function PainelMedico() {
             </button>
           </div>
 
-          <h2 className="text-xl font-semibold mb-3">Pacientes cadastrados</h2>
+          <h2 className="text-xl font-semibold mb-3">
+            Pacientes cadastrados
+          </h2>
 
           <ul className="space-y-3">
             {patients.map((p) => (
