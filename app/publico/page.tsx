@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 type PublicCall =
   | {
@@ -14,16 +14,51 @@ type PublicCall =
       timestamp: number;
     };
 
+// Tipagem global para evitar erros no build
+declare global {
+  interface Window {
+    YT: any;
+    onYouTubeIframeAPIReady: () => void;
+  }
+}
+
 export default function PublicoPage() {
   const [message, setMessage] = useState("Aguardando chamada...");
   const [subtitle, setSubtitle] = useState(
     "Por favor, aguarde ser chamado no painel."
   );
   const [videoId, setVideoId] = useState("");
-  const [ytPlayer, setYtPlayer] = useState<any>(null);
 
-  // 🔵 1. Carrega última chamada e vídeo
+  // Guardamos a referência real do player
+  const playerRef = useRef<any>(null);
+
+  // ----- 1️⃣ APLICAR CHAMADA -----
+  const applyCall = (data: PublicCall) => {
+    if (data.type === "CLEAR") {
+      setMessage("Aguardando chamada...");
+      setSubtitle("Por favor, aguarde ser chamado no painel.");
+
+      // restaura volume
+      if (playerRef.current?.setVolume) playerRef.current.setVolume(100);
+      return;
+    }
+
+    setMessage(`Paciente ${data.name}`);
+    setSubtitle(`Dirija-se ao consultório do(a) ${data.doctorName}.`);
+
+    // ducking
+    if (playerRef.current?.setVolume) playerRef.current.setVolume(20);
+
+    setTimeout(() => {
+      if (playerRef.current?.setVolume) playerRef.current.setVolume(100);
+    }, 10_000);
+  };
+
+  // ----- 2️⃣ CARREGAR ÚLTIMO ESTADO + OUVIR STORAGE -----
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // carregar última chamada
     const savedCall = localStorage.getItem("publicCall");
     if (savedCall) {
       try {
@@ -34,38 +69,43 @@ export default function PublicoPage() {
     const savedVideo = localStorage.getItem("videoId");
     if (savedVideo) setVideoId(savedVideo);
 
-    // Listener de eventos entre abas
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === "publicCall" && event.newValue) {
+    const handleStorage = (ev: StorageEvent) => {
+      if (ev.key === "publicCall" && ev.newValue) {
         try {
-          applyCall(JSON.parse(event.newValue));
+          applyCall(JSON.parse(ev.newValue));
         } catch {}
       }
 
-      if (event.key === "videoId" && event.newValue) {
-        setVideoId(event.newValue);
+      if (ev.key === "videoId" && ev.newValue) {
+        setVideoId(ev.newValue);
       }
     };
 
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+  }, [applyCall]);
 
-  // 🔵 2. Carregar API do YouTube e criar o player
+  // ----- 3️⃣ CARREGAR API DO YOUTUBE + CRIAR PLAYER -----
   useEffect(() => {
     if (!videoId) return;
 
     // Criar script da API apenas uma vez
-    const existing = document.getElementById("youtube-api");
-    if (!existing) {
+    const existingScript = document.getElementById("youtube-api");
+    if (!existingScript) {
       const tag = document.createElement("script");
       tag.id = "youtube-api";
       tag.src = "https://www.youtube.com/iframe_api";
       document.body.appendChild(tag);
     }
 
-    (window as any).onYouTubeIframeAPIReady = () => {
-      const player = new (window as any).YT.Player("player", {
+    window.onYouTubeIframeAPIReady = () => {
+      if (playerRef.current) {
+        try {
+          playerRef.current.destroy();
+        } catch {}
+      }
+
+      playerRef.current = new window.YT.Player("player", {
         height: "100%",
         width: "100%",
         videoId,
@@ -78,36 +118,12 @@ export default function PublicoPage() {
         },
         events: {
           onReady: () => {
-            player.setVolume(100);
-            setYtPlayer(player);
+            playerRef.current.setVolume(100);
           },
         },
       });
     };
   }, [videoId]);
-
-  // 🔵 3. Aplicar chamada + DUCKING
-  const applyCall = (data: PublicCall) => {
-    if (data.type === "CLEAR") {
-      setMessage("Aguardando chamada...");
-      setSubtitle("Por favor, aguarde ser chamado no painel.");
-
-      if (ytPlayer?.setVolume) ytPlayer.setVolume(100);
-      return;
-    }
-
-    // Atualizar tela
-    setMessage(`Paciente ${data.name}`);
-    setSubtitle(`Dirija-se ao consultório do(a) ${data.doctorName}.`);
-
-    // 🔊 DUCKING
-    if (ytPlayer?.setVolume) ytPlayer.setVolume(20);
-
-    // Restaurar volume em 10 segundos
-    setTimeout(() => {
-      if (ytPlayer?.setVolume) ytPlayer.setVolume(100);
-    }, 10000);
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-blue-900 text-white flex flex-col items-center justify-center p-6 relative">
