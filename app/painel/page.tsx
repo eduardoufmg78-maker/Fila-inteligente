@@ -10,26 +10,28 @@ type Patient = {
 };
 
 type PublicCall =
-  | { type: "CALL"; name: string; doctorName: string; timestamp: number }
+  | {
+      type: "CALL";
+      name: string;
+      doctorName: string;
+      consultorio: string;
+      timestamp: number;
+    }
   | { type: "CLEAR"; timestamp: number };
 
 const STORAGE_KEYS = {
   doctorName: "doctorName",
   doctorTitle: "doctorTitle",
+  consultorioNumber: "consultorioNumber",
   patients: "patients",
   publicCall: "publicCall",
   videoId: "videoId",
 } as const;
 
-const getPrefix = (title: DoctorTitle) =>
-  title === "Dra." ? "Doutora" : "Doutor";
-
-const getArticle = (title: DoctorTitle) =>
-  title === "Dra." ? "da" : "do";
-
 export default function PainelMedico() {
   const [doctorName, setDoctorName] = useState("");
   const [doctorTitle, setDoctorTitle] = useState<DoctorTitle>("Dr.");
+  const [consultorioNumber, setConsultorioNumber] = useState("1");
   const [patientName, setPatientName] = useState("");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [currentCallId, setCurrentCallId] = useState<number | null>(null);
@@ -45,11 +47,17 @@ export default function PainelMedico() {
     const storedTitle = localStorage.getItem(
       STORAGE_KEYS.doctorTitle
     ) as DoctorTitle | null;
+    const storedConsultorio = localStorage.getItem(
+      STORAGE_KEYS.consultorioNumber
+    );
     const savedPatients = localStorage.getItem(STORAGE_KEYS.patients);
 
     if (storedName) setDoctorName(storedName);
     if (storedTitle === "Dr." || storedTitle === "Dra.") {
       setDoctorTitle(storedTitle);
+    }
+    if (storedConsultorio) {
+      setConsultorioNumber(storedConsultorio);
     }
 
     if (savedPatients) {
@@ -105,10 +113,9 @@ export default function PainelMedico() {
     const patient = patients.find((p) => p.id === id);
     if (!patient) return;
 
-    const prefix = getPrefix(doctorTitle);
-    const article = getArticle(doctorTitle);
+    const numeroConsultorio = consultorioNumber || "1";
 
-    const text = `Paciente ${patient.name}, dirija-se ao consultório ${article} ${prefix} ${doctorName}.`;
+    const text = `Paciente ${patient.name}, dirija-se ao consultório ${numeroConsultorio}.`;
 
     speak(text);
     startRepeat(text);
@@ -118,6 +125,7 @@ export default function PainelMedico() {
       type: "CALL",
       name: patient.name,
       doctorName: `${doctorTitle} ${doctorName}`,
+      consultorio: numeroConsultorio,
       timestamp: Date.now(),
     });
   };
@@ -171,6 +179,7 @@ export default function PainelMedico() {
 
     localStorage.removeItem(STORAGE_KEYS.doctorName);
     localStorage.removeItem(STORAGE_KEYS.doctorTitle);
+    localStorage.removeItem(STORAGE_KEYS.consultorioNumber);
 
     // rota em minúsculo
     window.location.href = "/login";
@@ -180,7 +189,12 @@ export default function PainelMedico() {
     <div className="min-h-screen w-full bg-gray-100 p-6">
       {/* Cabeçalho */}
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Painel do Profissional</h1>
+        <div>
+          <h1 className="text-3xl font-bold">Painel do Profissional</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Gerencie sua fila de pacientes e as chamadas para o painel público.
+          </p>
+        </div>
         <button
           onClick={logout}
           className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
@@ -190,11 +204,17 @@ export default function PainelMedico() {
       </div>
 
       {/* Profissional logado */}
-      <div className="mb-6">
-        <p className="text-lg font-semibold">Profissional logado:</p>
-        <p className="text-xl">
-          {doctorTitle} {doctorName}
-        </p>
+      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        <div>
+          <p className="text-lg font-semibold">Profissional logado:</p>
+          <p className="text-xl">
+            {doctorTitle} {doctorName}
+          </p>
+        </div>
+        <div>
+          <p className="text-lg font-semibold">Consultório:</p>
+          <p className="text-xl">Consultório {consultorioNumber}</p>
+        </div>
       </div>
 
       {/* Configurar vídeo */}
@@ -280,6 +300,9 @@ export default function PainelMedico() {
                 <strong>
                   {patients.find((p) => p.id === currentCallId)?.name}
                 </strong>
+              </p>
+              <p className="mt-2 text-md">
+                Dirija-se ao <strong>consultório {consultorioNumber}</strong>.
               </p>
 
               <button
