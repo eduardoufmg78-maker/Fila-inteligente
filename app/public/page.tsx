@@ -165,8 +165,15 @@ export default function PublicoPage() {
       </h1>
 
       <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-10 max-w-4xl w-full text-center border border-white/20">
-        <p className="text-4xl md:text-5xl font-bold mb-4">{message}</p>
-        <p className="text-xl md:text-2xl text-slate-200">{subtitle}</p>
+        {/* NOME / MENSAGEM EM DESTAQUE */}
+        <p className="text-5xl md:text-7xl font-extrabold mb-6 text-white drop-shadow-lg">
+          {message}
+        </p>
+
+        {/* Subtítulo um pouco menor */}
+        <p className="text-2xl md:text-3xl text-slate-200">
+          {subtitle}
+        </p>
       </div>
 
       {/* Player de vídeo */}
