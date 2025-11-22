@@ -7,6 +7,7 @@ type PublicCall =
       type: "CALL";
       name: string;
       doctorName: string;
+      consultorio: string;
       timestamp: number;
     }
   | {
@@ -61,7 +62,7 @@ export default function PublicoPage() {
 
     // Atualizar tela
     setMessage(`Paciente ${data.name}`);
-    setSubtitle(`Dirija-se ao consultório do(a) ${data.doctorName}.`);
+    setSubtitle(`Dirija-se ao consultório ${data.consultorio}.`);
 
     // 🔊 DUCKING
     if (ytPlayer) {
@@ -110,8 +111,7 @@ export default function PublicoPage() {
 
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ytPlayer]); // ytPlayer entra aqui porque o ducking depende dele
+  }, [ytPlayer]);
 
   // 🔵 3. Carregar API do YouTube e criar o player
   useEffect(() => {
@@ -170,10 +170,8 @@ export default function PublicoPage() {
           {message}
         </p>
 
-        {/* Subtítulo um pouco menor */}
-        <p className="text-2xl md:text-3xl text-slate-200">
-          {subtitle}
-        </p>
+        {/* Subtítulo */}
+        <p className="text-2xl md:text-3xl text-slate-200">{subtitle}</p>
       </div>
 
       {/* Player de vídeo */}
