@@ -6,13 +6,15 @@ import { useState, useEffect } from "react";
 export default function LoginPage() {
   const [name, setName] = useState("");
   const [title, setTitle] = useState<"Dr." | "Dra.">("Dr.");
+  const [consultorio, setConsultorio] = useState("1");
 
   // Se já estiver logado, vai direto pro painel
   useEffect(() => {
     const storedName = localStorage.getItem("doctorName");
     const storedTitle = localStorage.getItem("doctorTitle");
+    const storedConsultorio = localStorage.getItem("consultorioNumber");
 
-    if (storedName && storedTitle) {
+    if (storedName && storedTitle && storedConsultorio) {
       window.location.href = "/painel";
     }
   }, []);
@@ -24,6 +26,7 @@ export default function LoginPage() {
     // Salva no localStorage para o painel
     localStorage.setItem("doctorName", name.trim());
     localStorage.setItem("doctorTitle", title);
+    localStorage.setItem("consultorioNumber", consultorio);
 
     // Vai para o painel
     window.location.href = "/painel";
@@ -37,6 +40,7 @@ export default function LoginPage() {
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          
           {/* Seleção Dr / Dra */}
           <div>
             <label className="block text-sm font-medium mb-1">
@@ -81,6 +85,24 @@ export default function LoginPage() {
               placeholder="Ex.: Amanda Souza"
               className="w-full px-3 py-2 rounded-md border border-slate-600 bg-slate-900/60 text-white"
             />
+          </div>
+
+          {/* Consultório */}
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Número do consultório
+            </label>
+            <select
+              value={consultorio}
+              onChange={(e) => setConsultorio(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border border-slate-600 bg-slate-900/60 text-white"
+            >
+              <option value="1">Consultório 1</option>
+              <option value="2">Consultório 2</option>
+              <option value="3">Consultório 3</option>
+              <option value="4">Consultório 4</option>
+              <option value="5">Consultório 5</option>
+            </select>
           </div>
 
           <button
