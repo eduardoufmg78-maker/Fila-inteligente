@@ -16,6 +16,10 @@ export default function PainelPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isSending, setIsSending] = useState(false);
 
+  // vídeo do YouTube
+  const [videoInput, setVideoInput] = useState("");
+  const [videoStatus, setVideoStatus] = useState<"" | "ok" | "erro">("");
+
   const professionalLabel = professionalName
     ? `${title} ${professionalName.trim()}`
     : "";
@@ -96,6 +100,32 @@ export default function PainelPage() {
 
   function handleDeletePatient(id: number) {
     setPatients((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  // envia o link do vídeo para o backend (/api/video)
+  async function handleSendVideo() {
+    try {
+      const res = await fetch("/api/video", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: videoInput.trim(),
+        }),
+      });
+
+      await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        setVideoStatus("ok");
+      } else {
+        setVideoStatus("erro");
+      }
+    } catch (error) {
+      console.error("Erro ao enviar vídeo:", error);
+      setVideoStatus("erro");
+    }
   }
 
   return (
@@ -192,6 +222,46 @@ export default function PainelPage() {
               </p>
             </div>
           </div>
+        </section>
+
+        {/* Vídeo do painel público */}
+        <section className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+          <h2 className="text-lg font-semibold text-slate-900">
+            Vídeo do painel público
+          </h2>
+
+          <p className="text-sm text-slate-600">
+            Cole abaixo o link do YouTube que deve tocar na tela pública
+            (recepção).
+          </p>
+
+          <div className="flex flex-col md:flex-row gap-3 items-stretch">
+            <input
+              type="text"
+              placeholder="https://www.youtube.com/watch?v=..."
+              className="flex-1 px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              value={videoInput}
+              onChange={(e) => setVideoInput(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={handleSendVideo}
+              className="px-4 py-2 rounded-md font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+            >
+              Enviar vídeo
+            </button>
+          </div>
+
+          {videoStatus === "ok" && (
+            <p className="text-sm text-green-600">
+              Vídeo atualizado com sucesso no painel público.
+            </p>
+          )}
+          {videoStatus === "erro" && (
+            <p className="text-sm text-red-600">
+              Erro ao atualizar o vídeo. Tente novamente.
+            </p>
+          )}
         </section>
 
         {/* Fila de pacientes */}
