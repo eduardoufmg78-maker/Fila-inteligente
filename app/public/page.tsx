@@ -2,190 +2,76 @@
 
 import { useEffect, useState } from "react";
 
-type PublicCall =
-  | {
-      type: "CALL";
-      name: string;
-      doctorName: string;
-      consultorio: string;
-      timestamp: number;
-    }
-  | {
-      type: "CLEAR";
-      timestamp: number;
-    };
-
-// Tipo mínimo que precisamos do player do YouTube
-type YTPlayer = {
-  setVolume: (volume: number) => void;
+type CallData = {
+  id: number;
+  name: string;
+  doctor: string;
+  room: string;
+  timestamp: number;
 };
 
-declare global {
-  interface Window {
-    YT?: {
-      Player: new (
-        elementId: string,
-        options: {
-          height?: string;
-          width?: string;
-          videoId?: string;
-          playerVars?: Record<string, string | number | boolean>;
-          events?: {
-            onReady?: () => void;
-          };
-        }
-      ) => YTPlayer;
-    };
-    onYouTubeIframeAPIReady?: () => void;
-  }
-}
+export default function PublicPage() {
+  const [currentCall, setCurrentCall] = useState<CallData | null>(null);
+  const [lastAnnouncedId, setLastAnnouncedId] = useState<number | null>(null);
 
-export default function PublicoPage() {
-  const [message, setMessage] = useState("Aguardando chamada...");
-  const [subtitle, setSubtitle] = useState(
-    "Por favor, aguarde ser chamado no painel."
-  );
-  const [videoId, setVideoId] = useState("");
-  const [ytPlayer, setYtPlayer] = useState<YTPlayer | null>(null);
+  // Função para falar no navegador da RECEPÇÃO
+  const speak = (text: string) => {
+    if (typeof window === "undefined") return;
+    if (!("speechSynthesis" in window)) return;
 
-  // 🔵 1. Função que aplica a chamada + ducking
-  const applyCall = (data: PublicCall) => {
-    if (data.type === "CLEAR") {
-      setMessage("Aguardando chamada...");
-      setSubtitle("Por favor, aguarde ser chamado no painel.");
-
-      if (ytPlayer) {
-        ytPlayer.setVolume(100);
-      }
-      return;
-    }
-
-    // Atualizar tela
-    setMessage(`Paciente ${data.name}`);
-    setSubtitle(`Dirija-se ao consultório ${data.consultorio}.`);
-
-    // 🔊 DUCKING
-    if (ytPlayer) {
-      ytPlayer.setVolume(20);
-
-      // Restaurar volume em 10 segundos
-      setTimeout(() => {
-        if (ytPlayer) {
-          ytPlayer.setVolume(100);
-        }
-      }, 10000);
-    }
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "pt-BR";
+    utter.rate = 1;
+    utter.pitch = 1;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utter);
   };
 
-  // 🔵 2. Carrega última chamada e vídeo + ouve eventos de storage
+  // Buscar a chamada a cada 3 segundos
   useEffect(() => {
-    const savedCall = localStorage.getItem("publicCall");
-    if (savedCall) {
+    const interval = setInterval(async () => {
       try {
-        const parsed: PublicCall = JSON.parse(savedCall) as PublicCall;
-        applyCall(parsed);
-      } catch {
-        // ignora erro de parse
-      }
-    }
+        const res = await fetch("/api/current-call");
+        if (!res.ok) return;
 
-    const savedVideo = localStorage.getItem("videoId");
-    if (savedVideo) {
-      setVideoId(savedVideo);
-    }
+        const data = await res.json();
+        const call: CallData | null = data.call;
 
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === "publicCall" && event.newValue) {
-        try {
-          const parsed: PublicCall = JSON.parse(event.newValue) as PublicCall;
-          applyCall(parsed);
-        } catch {
-          // ignora erro de parse
+        // Só anuncia se for chamada nova
+        if (call && call.id !== lastAnnouncedId) {
+          setCurrentCall(call);
+          setLastAnnouncedId(call.id);
+
+          const frase = `Paciente ${call.name}, dirija-se ao ${call.room}.`;
+          speak(frase);
         }
+      } catch (error) {
+        console.error("Erro ao buscar chamada:", error);
       }
+    }, 3000);
 
-      if (event.key === "videoId" && event.newValue) {
-        setVideoId(event.newValue);
-      }
-    };
-
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, [ytPlayer]);
-
-  // 🔵 3. Carregar API do YouTube e criar o player
-  useEffect(() => {
-    if (!videoId) return;
-
-    const createPlayer = () => {
-      if (!window.YT || !window.YT.Player) return;
-
-      const player = new window.YT.Player("player", {
-        height: "100%",
-        width: "100%",
-        videoId,
-        playerVars: {
-          autoplay: 1,
-          controls: 0,
-          mute: 0,
-          loop: 1,
-          playlist: videoId,
-        },
-        events: {
-          onReady: () => {
-            player.setVolume(100);
-            setYtPlayer(player);
-          },
-        },
-      });
-    };
-
-    // Carrega script da API do YouTube se ainda não existir
-    const existingScript = document.getElementById("youtube-api");
-    if (!existingScript) {
-      const tag = document.createElement("script");
-      tag.id = "youtube-api";
-      tag.src = "https://www.youtube.com/iframe_api";
-      document.body.appendChild(tag);
-    }
-
-    if (window.YT && window.YT.Player) {
-      createPlayer();
-    } else {
-      window.onYouTubeIframeAPIReady = () => {
-        createPlayer();
-      };
-    }
-  }, [videoId]);
+    return () => clearInterval(interval);
+  }, [lastAnnouncedId]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-blue-900 text-white flex flex-col items-center justify-center p-6 relative">
-      <h1 className="text-4xl md:text-5xl font-bold mb-10 drop-shadow">
-        Chamada de Pacientes
-      </h1>
+    <main className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-4">
+      <div className="w-full max-w-3xl bg-slate-800/80 rounded-2xl p-10 shadow-2xl text-center">
+        <h1 className="text-3xl font-extrabold mb-6">Chamada de Pacientes</h1>
 
-      <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-10 max-w-4xl w-full text-center border border-white/20">
-        {/* NOME / MENSAGEM EM DESTAQUE */}
-        <p className="text-5xl md:text-7xl font-extrabold mb-6 text-white drop-shadow-lg">
-          {message}
-        </p>
-
-        {/* Subtítulo */}
-        <p className="text-2xl md:text-3xl text-slate-200">{subtitle}</p>
-      </div>
-
-      {/* Player de vídeo */}
-      <div className="absolute bottom-4 right-4 w-72 md:w-96 h-40 md:h-56 bg-black/70 rounded-xl overflow-hidden border border-white/30 p-2">
-        <p className="text-xs text-slate-300 mb-1">Música ambiente</p>
-
-        {videoId ? (
-          <div id="player" className="w-full h-full rounded-md" />
+        {currentCall ? (
+          <>
+            <p className="text-xl mb-2">Chamando paciente:</p>
+            <p className="text-5xl font-bold mb-4">{currentCall.name}</p>
+            <p className="text-lg">
+              Dirija-se ao <span className="font-semibold">{currentCall.room}</span>.
+            </p>
+          </>
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-slate-400 text-sm text-center">
-            Configure um vídeo no painel do profissional.
-          </div>
+          <p className="text-xl text-slate-300">
+            Aguardando próxima chamada...
+          </p>
         )}
       </div>
-    </div>
+    </main>
   );
 }
