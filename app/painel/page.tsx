@@ -1,324 +1,147 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useState } from "react";
 
-type DoctorTitle = "Dr." | "Dra.";
-
-type Patient = {
-  id: number;
-  name: string;
-};
-
-type PublicCall =
-  | {
-      type: "CALL";
-      name: string;
-      doctorName: string;
-      consultorio: string;
-      timestamp: number;
-    }
-  | { type: "CLEAR"; timestamp: number };
-
-const STORAGE_KEYS = {
-  doctorName: "doctorName",
-  doctorTitle: "doctorTitle",
-  consultorioNumber: "consultorioNumber",
-  patients: "patients",
-  publicCall: "publicCall",
-  videoId: "videoId",
-} as const;
-
-export default function PainelMedico() {
-  const [doctorName, setDoctorName] = useState("");
-  const [doctorTitle, setDoctorTitle] = useState<DoctorTitle>("Dr.");
-  const [consultorioNumber, setConsultorioNumber] = useState("1");
+export default function PainelPage() {
+  const [title, setTitle] = useState<"Dr." | "Dra.">("Dr.");
+  const [professionalName, setProfessionalName] = useState("");
+  const [room, setRoom] = useState("Consultório 1");
   const [patientName, setPatientName] = useState("");
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [currentCallId, setCurrentCallId] = useState<number | null>(null);
+  const [isSending, setIsSending] = useState(false);
 
-  // em browser, setInterval retorna number, não NodeJS.Timeout
-  const repeatRef = useRef<number | null>(null);
-
-  // 🔹 Carrega dados salvos
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const storedName = localStorage.getItem(STORAGE_KEYS.doctorName);
-    const storedTitle = localStorage.getItem(
-      STORAGE_KEYS.doctorTitle
-    ) as DoctorTitle | null;
-    const storedConsultorio = localStorage.getItem(
-      STORAGE_KEYS.consultorioNumber
-    );
-    const savedPatients = localStorage.getItem(STORAGE_KEYS.patients);
-
-    if (storedName) setDoctorName(storedName);
-    if (storedTitle === "Dr." || storedTitle === "Dra.") {
-      setDoctorTitle(storedTitle);
+  async function handleCallPatient() {
+    if (!patientName.trim()) {
+      alert("Digite o nome do paciente.");
+      return;
     }
-    if (storedConsultorio) {
-      setConsultorioNumber(storedConsultorio);
+    if (!professionalName.trim()) {
+      alert("Digite o nome do profissional.");
+      return;
     }
 
-    if (savedPatients) {
-      try {
-        setPatients(JSON.parse(savedPatients) as Patient[]);
-      } catch {
-        setPatients([]);
+    const doctor = `${title} ${professionalName.trim()}`;
+    const roomLabel = room;
+
+    try {
+      setIsSending(true);
+
+      const res = await fetch("/api/call", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: patientName.trim(),
+          doctor: doctor,
+          room: roomLabel,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error("Erro ao chamar paciente:", data);
+        alert("Erro ao chamar paciente. Tente novamente.");
+        return;
       }
+
+      // limpa só o nome do paciente após chamada
+      setPatientName("");
+    } catch (error) {
+      console.error("Erro na requisição:", error);
+      alert("Erro de conexão ao chamar paciente.");
+    } finally {
+      setIsSending(false);
     }
-  }, []);
-
-  // 🔹 Salva lista de pacientes
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(STORAGE_KEYS.patients, JSON.stringify(patients));
-  }, [patients]);
-
-  // 🔊 Fala em voz alta
-  const speak = (text: string) => {
-    if (typeof window === "undefined") return;
-    if (!("speechSynthesis" in window)) return;
-
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = "pt-BR";
-    window.speechSynthesis.speak(utter);
-  };
-
-  const sendPublicCall = (payload: PublicCall) => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(STORAGE_KEYS.publicCall, JSON.stringify(payload));
-  };
-
-  const startRepeat = (text: string) => {
-    if (typeof window === "undefined") return;
-
-    if (repeatRef.current !== null) {
-      window.clearInterval(repeatRef.current);
-    }
-    repeatRef.current = window.setInterval(() => speak(text), 30_000);
-  };
-
-  const stopRepeat = () => {
-    if (typeof window === "undefined") return;
-
-    if (repeatRef.current !== null) {
-      window.clearInterval(repeatRef.current);
-      repeatRef.current = null;
-    }
-  };
-
-  // 🔵 Chamar paciente
-  const callPatient = (id: number) => {
-    const patient = patients.find((p) => p.id === id);
-    if (!patient) return;
-
-    const numeroConsultorio = consultorioNumber || "1";
-
-    const text = `Paciente ${patient.name}, dirija-se ao consultório ${numeroConsultorio}.`;
-
-    speak(text);
-    startRepeat(text);
-    setCurrentCallId(id);
-
-    sendPublicCall({
-      type: "CALL",
-      name: patient.name,
-      doctorName: `${doctorTitle} ${doctorName}`,
-      consultorio: numeroConsultorio,
-      timestamp: Date.now(),
-    });
-  };
-
-  // 🟢 Confirmar entrada
-  const confirmEntry = () => {
-    stopRepeat();
-    setCurrentCallId(null);
-
-    sendPublicCall({
-      type: "CLEAR",
-      timestamp: Date.now(),
-    });
-  };
-
-  // ➕ Adicionar paciente
-  const addPatient = () => {
-    const trimmed = patientName.trim();
-    if (!trimmed) return;
-
-    setPatients((prev) => [...prev, { id: Date.now(), name: trimmed }]);
-    setPatientName("");
-  };
-
-  // 🚮 Excluir paciente
-  const deletePatient = (id: number) => {
-    setPatients((prev) => prev.filter((p) => p.id !== id));
-
-    if (currentCallId === id) {
-      confirmEntry();
-    }
-  };
-
-  // 🔵 Configurar vídeo (só salva o ID no localStorage)
-  const handleVideoChange = (url: string) => {
-    if (typeof window === "undefined") return;
-
-    // aceita link normal e youtu.be
-    const match =
-      url.match(/v=([^&]+)/) ?? url.match(/youtu\.be\/([^?]+)/);
-
-    if (!match) return;
-
-    const id = match[1];
-    localStorage.setItem(STORAGE_KEYS.videoId, id);
-  };
-
-  // 🔴 Logout
-  const logout = () => {
-    if (typeof window === "undefined") return;
-
-    localStorage.removeItem(STORAGE_KEYS.doctorName);
-    localStorage.removeItem(STORAGE_KEYS.doctorTitle);
-    localStorage.removeItem(STORAGE_KEYS.consultorioNumber);
-
-    // rota em minúsculo
-    window.location.href = "/login";
-  };
+  }
 
   return (
-    <div className="min-h-screen w-full bg-gray-100 p-6">
-      {/* Cabeçalho */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">Painel do Profissional</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Gerencie sua fila de pacientes e as chamadas para o painel público.
-          </p>
-        </div>
-        <button
-          onClick={logout}
-          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
-        >
-          Logout
-        </button>
-      </div>
+    <main className="min-h-screen flex items-center justify-center bg-slate-900 text-white p-4">
+      <div className="w-full max-w-xl bg-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+        <h1 className="text-2xl font-bold text-center mb-4">
+          Painel do Profissional – Fila Inteligente
+        </h1>
 
-      {/* Profissional logado */}
-      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-        <div>
-          <p className="text-lg font-semibold">Profissional logado:</p>
-          <p className="text-xl">
-            {doctorTitle} {doctorName}
-          </p>
-        </div>
-        <div>
-          <p className="text-lg font-semibold">Consultório:</p>
-          <p className="text-xl">Consultório {consultorioNumber}</p>
-        </div>
-      </div>
-
-      {/* Configurar vídeo */}
-      <div className="mb-6 bg-white shadow p-6 rounded-lg">
-        <h2 className="text-xl font-semibold mb-3">Configurar vídeo</h2>
-
-        <input
-          type="text"
-          placeholder="Cole aqui o link do YouTube"
-          className="w-full border px-3 py-2 rounded mb-3"
-          onBlur={(e) => handleVideoChange(e.target.value)}
-        />
-
-        <p className="text-sm text-gray-600">
-          O vídeo será atualizado automaticamente no painel público.
-        </p>
-      </div>
-
-      {/* Painel em 2 colunas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Cadastro */}
-        <div className="bg-white shadow p-6 rounded-lg">
-          <h2 className="text-xl font-semibold mb-4">Cadastrar paciente</h2>
-
-          <div className="flex gap-2 mb-4">
-            <input
-              type="text"
-              value={patientName}
-              onChange={(e) => setPatientName(e.target.value)}
-              placeholder="Nome do paciente"
-              className="flex-1 border px-3 py-2 rounded"
-            />
-            <button
-              onClick={addPatient}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-            >
-              Adicionar
-            </button>
-          </div>
-
-          <h2 className="text-xl font-semibold mb-3">
-            Pacientes cadastrados
-          </h2>
-
-          <ul className="space-y-3">
-            {patients.map((p) => (
-              <li
-                key={p.id}
-                className={`flex justify-between p-3 border rounded ${
-                  currentCallId === p.id ? "bg-yellow-200" : "bg-gray-50"
+        {/* Dados do profissional */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="col-span-1">
+            <p className="text-sm mb-1">Título</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setTitle("Dr.")}
+                className={`flex-1 py-1 rounded-md text-sm border ${
+                  title === "Dr."
+                    ? "bg-indigo-500 border-indigo-400"
+                    : "bg-slate-700 border-slate-600"
                 }`}
               >
-                <span>{p.name}</span>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => callPatient(p.id)}
-                    className="bg-green-600 text-white px-3 py-1 rounded"
-                  >
-                    Chamar
-                  </button>
-
-                  <button
-                    onClick={() => deletePatient(p.id)}
-                    className="bg-gray-500 text-white px-3 py-1 rounded"
-                  >
-                    Excluir
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Chamada ativa */}
-        <div className="bg-white shadow p-6 rounded-lg">
-          <h2 className="text-xl font-semibold mb-4">Chamada ativa</h2>
-
-          {currentCallId ? (
-            <div className="p-4 border rounded bg-green-50">
-              <p className="text-lg">
-                Chamando:{" "}
-                <strong>
-                  {patients.find((p) => p.id === currentCallId)?.name}
-                </strong>
-              </p>
-              <p className="mt-2 text-md">
-                Dirija-se ao <strong>consultório {consultorioNumber}</strong>.
-              </p>
-
+                Dr.
+              </button>
               <button
-                onClick={confirmEntry}
-                className="mt-4 bg-blue-600 text-white px-4 py-2 rounded"
+                type="button"
+                onClick={() => setTitle("Dra.")}
+                className={`flex-1 py-1 rounded-md text-sm border ${
+                  title === "Dra."
+                    ? "bg-indigo-500 border-indigo-400"
+                    : "bg-slate-700 border-slate-600"
+                }`}
               >
-                Confirmar entrada
+                Dra.
               </button>
             </div>
-          ) : (
-            <p className="text-gray-500">
-              Nenhum paciente está sendo chamado no momento.
-            </p>
-          )}
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-sm mb-1">
+              Nome do profissional
+            </label>
+            <input
+              type="text"
+              value={professionalName}
+              onChange={(e) => setProfessionalName(e.target.value)}
+              className="w-full px-3 py-2 rounded-md bg-slate-700 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Ex.: Amanda Souza"
+            />
+          </div>
         </div>
+
+        {/* Consultório */}
+        <div>
+          <label className="block text-sm mb-1">Número do consultório</label>
+          <select
+            value={room}
+            onChange={(e) => setRoom(e.target.value)}
+            className="w-full px-3 py-2 rounded-md bg-slate-700 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option>Consultório 1</option>
+            <option>Consultório 2</option>
+            <option>Consultório 3</option>
+            <option>Consultório 4</option>
+            <option>Consultório 5</option>
+          </select>
+        </div>
+
+        {/* Paciente */}
+        <div>
+          <label className="block text-sm mb-1">Nome do paciente</label>
+          <input
+            type="text"
+            value={patientName}
+            onChange={(e) => setPatientName(e.target.value)}
+            className="w-full px-3 py-2 rounded-md bg-slate-700 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Digite o nome do paciente"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleCallPatient}
+          disabled={isSending}
+          className="w-full mt-4 py-2 rounded-md font-semibold bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed transition"
+        >
+          {isSending ? "Chamando..." : "Chamar paciente"}
+        </button>
       </div>
-    </div>
+    </main>
   );
 }
