@@ -1,28 +1,25 @@
 import { NextResponse } from "next/server";
-import { getVideoUrl, setVideoUrl } from "@/lib/callStore";
 
-export async function GET() {
-  const url = getVideoUrl();
-  return NextResponse.json({ url });
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+
+    return NextResponse.json({
+      ok: true,
+      url: body.url ?? null,
+    });
+  } catch {
+    // Sem variável "e" para evitar erro ESLint
+    return NextResponse.json(
+      { ok: false, error: "Erro ao processar requisição." },
+      { status: 400 }
+    );
+  }
 }
 
-export async function POST(request: Request) {
-  let body: { url?: string } = {};
-
-  try {
-    body = await request.json();
-  } catch (e) {
-    body = {};
-  }
-
-  const url = typeof body.url === "string" ? body.url.trim() : "";
-
-  if (!url) {
-    setVideoUrl(null);
-    return NextResponse.json({ ok: true, url: null });
-  }
-
-  setVideoUrl(url);
-
-  return NextResponse.json({ ok: true, url });
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: "Endpoint de vídeo funcionando.",
+  });
 }
