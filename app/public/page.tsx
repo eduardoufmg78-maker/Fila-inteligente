@@ -13,18 +13,68 @@ type CallData = {
 export default function PublicPage() {
   const [currentCall, setCurrentCall] = useState<CallData | null>(null);
   const [lastAnnouncedId, setLastAnnouncedId] = useState<number | null>(null);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
 
-  // Função para falar no navegador da RECEPÇÃO
-  const speak = (text: string) => {
+  // Carrega lista de vozes e tenta escolher uma voz feminina em pt-BR
+  useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("speechSynthesis" in window)) return;
 
+    const synth = window.speechSynthesis;
+
+    function pickVoice() {
+      const voices = synth.getVoices();
+      if (!voices || voices.length === 0) return;
+
+      // Prioriza vozes em português
+      const ptVoices = voices.filter((v) =>
+        v.lang.toLowerCase().startsWith("pt")
+      );
+
+      // Tenta achar alguma que pareça feminina (heurística pelo nome)
+      const femaleCandidates = ptVoices.filter((v) =>
+        v.name.toLowerCase().includes("female") ||
+        v.name.toLowerCase().includes("feminina") ||
+        v.name.toLowerCase().includes("brasil") ||
+        v.name.toLowerCase().includes("br") ||
+        v.name.toLowerCase().includes("maria")
+      );
+
+      let chosen: SpeechSynthesisVoice | null =
+        femaleCandidates[0] || ptVoices[0] || voices[0] || null;
+
+      setVoice(chosen);
+    }
+
+    // Algumas vezes getVoices retorna vazio na primeira chamada
+    pickVoice();
+    synth.onvoiceschanged = pickVoice;
+
+    return () => {
+      synth.onvoiceschanged = null;
+    };
+  }, []);
+
+  const speak = (text: string) => {
+    if (!audioEnabled) return; // só fala se o usuário tiver habilitado
+    if (typeof window === "undefined") return;
+    if (!("speechSynthesis" in window)) return;
+
+    const synth = window.speechSynthesis;
+
     const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = "pt-BR";
+    if (voice) {
+      utter.voice = voice;
+      utter.lang = voice.lang;
+    } else {
+      utter.lang = "pt-BR";
+    }
     utter.rate = 1;
     utter.pitch = 1;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utter);
+
+    synth.cancel();
+    synth.speak(utter);
   };
 
   // Buscar a chamada a cada 3 segundos
@@ -51,21 +101,46 @@ export default function PublicPage() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [lastAnnouncedId]);
+  }, [lastAnnouncedId, audioEnabled, voice]);
+
+  function handleEnableAudio() {
+    setAudioEnabled(true);
+    // Frase de teste para "desbloquear" o áudio
+    setTimeout(() => {
+      speak("Sistema de chamadas ativado.");
+    }, 300);
+  }
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-4">
-      <div className="w-full max-w-3xl bg-slate-800/80 rounded-2xl p-10 shadow-2xl text-center">
-        <h1 className="text-3xl font-extrabold mb-6">Chamada de Pacientes</h1>
+      <div className="w-full max-w-3xl bg-slate-800/80 rounded-2xl p-8 shadow-2xl text-center space-y-6">
+        <h1 className="text-3xl font-extrabold">Chamada de Pacientes</h1>
+
+        {!audioEnabled && (
+          <div className="bg-yellow-500/20 border border-yellow-400 rounded-lg p-3 text-sm">
+            <p className="mb-2">
+              Para que a voz funcione, é preciso habilitar o áudio neste
+              computador.
+            </p>
+            <button
+              type="button"
+              onClick={handleEnableAudio}
+              className="px-4 py-2 rounded-md font-semibold bg-emerald-500 hover:bg-emerald-600"
+            >
+              Ativar voz da chamada
+            </button>
+          </div>
+        )}
 
         {currentCall ? (
-          <>
-            <p className="text-xl mb-2">Chamando paciente:</p>
-            <p className="text-5xl font-bold mb-4">{currentCall.name}</p>
+          <div className="space-y-3">
+            <p className="text-xl">Chamando paciente:</p>
+            <p className="text-5xl font-bold">{currentCall.name}</p>
             <p className="text-lg">
-              Dirija-se ao <span className="font-semibold">{currentCall.room}</span>.
+              Dirija-se ao{" "}
+              <span className="font-semibold">{currentCall.room}</span>.
             </p>
-          </>
+          </div>
         ) : (
           <p className="text-xl text-slate-300">
             Aguardando próxima chamada...
