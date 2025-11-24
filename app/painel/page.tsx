@@ -73,7 +73,6 @@ export default function PainelPage() {
         return;
       }
 
-      // marca como "chamado"
       setPatients((prev) =>
         prev.map((p) =>
           p.id === id ? { ...p, status: "chamado" } : p
@@ -100,26 +99,31 @@ export default function PainelPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-4">
-      <div className="w-full max-w-5xl bg-slate-800 rounded-2xl shadow-2xl p-6 space-y-6">
-        <h1 className="text-2xl font-bold text-center mb-2">
-          Painel do Profissional – Fila Inteligente
-        </h1>
+    <main className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl border border-slate-200 p-6 space-y-6">
+        <header className="border-b border-slate-200 pb-3 mb-2">
+          <h1 className="text-2xl font-bold text-slate-900 text-center">
+            Painel do Profissional – Fila Inteligente
+          </h1>
+        </header>
 
         {/* Dados do profissional */}
-        <section className="bg-slate-900/40 rounded-xl p-4 space-y-4">
-          <h2 className="text-lg font-semibold mb-1">Profissional</h2>
+        <section className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">
+            Profissional
+          </h2>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <p className="text-sm mb-1">Título</p>
+              <p className="text-sm text-slate-700 mb-1">Título</p>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setTitle("Dr.")}
                   className={`flex-1 py-1 rounded-md text-sm border ${
                     title === "Dr."
-                      ? "bg-indigo-500 border-indigo-400"
-                      : "bg-slate-700 border-slate-600"
+                      ? "bg-blue-500 text-white border-blue-500"
+                      : "bg-white text-slate-800 border-slate-300"
                   }`}
                 >
                   Dr.
@@ -129,8 +133,8 @@ export default function PainelPage() {
                   onClick={() => setTitle("Dra.")}
                   className={`flex-1 py-1 rounded-md text-sm border ${
                     title === "Dra."
-                      ? "bg-indigo-500 border-indigo-400"
-                      : "bg-slate-700 border-slate-600"
+                      ? "bg-blue-500 text-white border-blue-500"
+                      : "bg-white text-slate-800 border-slate-300"
                   }`}
                 >
                   Dra.
@@ -139,14 +143,14 @@ export default function PainelPage() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm mb-1">
+              <label className="block text-sm text-slate-700 mb-1">
                 Nome do profissional
               </label>
               <input
                 type="text"
                 value={professionalName}
                 onChange={(e) => setProfessionalName(e.target.value)}
-                className="w-full px-3 py-2 rounded-md bg-slate-700 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 placeholder="Ex.: Eduardo Souza"
               />
             </div>
@@ -154,13 +158,13 @@ export default function PainelPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="block text-sm mb-1">
+              <label className="block text-sm text-slate-700 mb-1">
                 Consultório
               </label>
               <select
                 value={room}
                 onChange={(e) => setRoom(e.target.value)}
-                className="w-full px-3 py-2 rounded-md bg-slate-700 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
                 <option>Consultório 1</option>
                 <option>Consultório 2</option>
@@ -171,14 +175,18 @@ export default function PainelPage() {
             </div>
 
             <div className="md:col-span-2 flex items-end">
-              <p className="text-sm text-slate-300">
+              <p className="text-sm text-slate-600">
                 {professionalLabel && (
                   <>
                     Chamadas serão anunciadas como{" "}
-                    <span className="font-semibold">
+                    <span className="font-semibold text-slate-900">
                       {professionalLabel}
                     </span>{" "}
-                    no {room}.
+                    no{" "}
+                    <span className="font-semibold text-slate-900">
+                      {room}
+                    </span>
+                    .
                   </>
                 )}
               </p>
@@ -187,8 +195,8 @@ export default function PainelPage() {
         </section>
 
         {/* Fila de pacientes */}
-        <section className="bg-slate-900/40 rounded-xl p-4 space-y-4">
-          <h2 className="text-lg font-semibold mb-1">
+        <section className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">
             Fila de pacientes
           </h2>
 
@@ -198,13 +206,13 @@ export default function PainelPage() {
               type="text"
               value={patientInput}
               onChange={(e) => setPatientInput(e.target.value)}
-              className="flex-1 px-3 py-2 rounded-md bg-slate-700 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="flex-1 px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
               placeholder="Nome do paciente"
             />
             <button
               type="button"
               onClick={handleAddPatient}
-              className="px-4 py-2 rounded-md font-semibold bg-emerald-500 hover:bg-emerald-600 transition"
+              className="px-4 py-2 rounded-md font-semibold bg-green-500 hover:bg-green-600 text-white shadow-sm"
             >
               Adicionar
             </button>
@@ -212,51 +220,65 @@ export default function PainelPage() {
 
           {/* Lista */}
           {patients.length === 0 ? (
-            <p className="text-sm text-slate-300 mt-2">
+            <p className="text-sm text-slate-600 mt-2">
               Nenhum paciente na fila.
             </p>
           ) : (
             <div className="mt-3 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left border-b border-slate-700">
-                    <th className="py-2 pr-2">Paciente</th>
-                    <th className="py-2 pr-2">Status</th>
-                    <th className="py-2 pr-2">Ações</th>
+                  <tr className="text-left border-b border-slate-200 bg-white">
+                    <th className="py-2 pr-2 text-slate-700">Paciente</th>
+                    <th className="py-2 pr-2 text-slate-700">Status</th>
+                    <th className="py-2 pr-2 text-slate-700">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {patients.map((p) => (
                     <tr
                       key={p.id}
-                      className="border-b border-slate-800 last:border-0"
+                      className="border-b border-slate-100 last:border-0"
                     >
-                      <td className="py-2 pr-2">{p.name}</td>
+                      <td className="py-2 pr-2 text-slate-900">
+                        {p.name}
+                      </td>
                       <td className="py-2 pr-2">
-                        {p.status === "aguardando" && "Aguardando"}
-                        {p.status === "chamado" && "Chamado"}
-                        {p.status === "atendido" && "Atendido"}
+                        {p.status === "aguardando" && (
+                          <span className="inline-block px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 text-xs">
+                            Aguardando
+                          </span>
+                        )}
+                        {p.status === "chamado" && (
+                          <span className="inline-block px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs">
+                            Chamado
+                          </span>
+                        )}
+                        {p.status === "atendido" && (
+                          <span className="inline-block px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-xs">
+                            Atendido
+                          </span>
+                        )}
                       </td>
                       <td className="py-2 pr-2 space-x-2">
                         <button
                           type="button"
                           onClick={() => handleCallPatient(p.id)}
                           disabled={isSending}
-                          className="px-3 py-1 rounded-md bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed text-xs font-semibold"
+                          className="px-3 py-1 rounded-md bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
                         >
                           Chamar
                         </button>
                         <button
                           type="button"
                           onClick={() => handleConfirmEntry(p.id)}
-                          className="px-3 py-1 rounded-md bg-emerald-500 hover:bg-emerald-600 text-xs font-semibold"
+                          className="px-3 py-1 rounded-md bg-green-500 hover:bg-green-600 text-white text-xs font-semibold"
                         >
-                          Confirmar entrada
+                          Confirmar
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDeletePatient(p.id)}
-                          className="px-3 py-1 rounded-md bg-rose-500 hover:bg-rose-600 text-xs font-semibold"
+                          className="px-3 py-1 rounded-md bg-red-500 hover:bg-red-600 text-white text-xs font-semibold"
                         >
                           Excluir
                         </button>
