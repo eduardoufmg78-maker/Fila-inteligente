@@ -41,7 +41,7 @@ export default function PublicPage() {
         v.name.toLowerCase().includes("maria")
       );
 
-      let chosen: SpeechSynthesisVoice | null =
+      const chosen: SpeechSynthesisVoice | null =
         femaleCandidates[0] || ptVoices[0] || voices[0] || null;
 
       setVoice(chosen);
@@ -101,7 +101,7 @@ export default function PublicPage() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [lastAnnouncedId, audioEnabled, voice]);
+  }, [lastAnnouncedId, audioEnabled, voice, speak]);
 
   function handleEnableAudio() {
     setAudioEnabled(true);
