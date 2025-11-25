@@ -89,3 +89,22 @@ export default function LoginPage() {
               onChange={(e) => setRoom(e.target.value)}
               className="w-full px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
             >
+              <option>Consultório 1</option>
+              <option>Consultório 2</option>
+              <option>Consultório 3</option>
+              <option>Consultório 4</option>
+              <option>Consultório 5</option>
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            className="w-full mt-2 px-4 py-2 rounded-md font-semibold bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm"
+          >
+            Entrar no painel
+          </button>
+        </form>
+      </div>
+    </main>
+  );
+}
