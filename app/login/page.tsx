@@ -1,118 +1,91 @@
 "use client";
 
-import type React from "react";
-import { useState, useEffect } from "react";
+import { useState, FormEvent } from "react";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  const [name, setName] = useState("");
+  const router = useRouter();
+
   const [title, setTitle] = useState<"Dr." | "Dra.">("Dr.");
-  const [consultorio, setConsultorio] = useState("1");
+  const [name, setName] = useState("");
+  const [room, setRoom] = useState("Consultório 1");
 
-  // Se já estiver logado, vai direto pro painel
-  useEffect(() => {
-    const storedName = localStorage.getItem("doctorName");
-    const storedTitle = localStorage.getItem("doctorTitle");
-    const storedConsultorio = localStorage.getItem("consultorioNumber");
-
-    if (storedName && storedTitle && storedConsultorio) {
-      window.location.href = "/painel";
-    }
-  }, []);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
 
-    // Salva no localStorage para o painel
-    localStorage.setItem("doctorName", name.trim());
-    localStorage.setItem("doctorTitle", title);
-    localStorage.setItem("consultorioNumber", consultorio);
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      alert("Preencha o nome do profissional.");
+      return;
+    }
 
-    // Vai para o painel
-    window.location.href = "/painel";
-  };
+    if (typeof window !== "undefined") {
+      localStorage.setItem("doctorTitle", title);
+      localStorage.setItem("doctorName", trimmedName);
+      localStorage.setItem("doctorRoom", room);
+    }
+
+    router.push("/painel");
+  }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 text-white">
-      <div className="bg-slate-800/90 px-8 py-6 rounded-2xl shadow-xl w-full max-w-md border border-slate-700">
-        <h1 className="text-2xl font-bold mb-6 text-center">
+    <main className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 p-6 space-y-6">
+        <h1 className="text-2xl font-bold text-slate-900 text-center">
           Login do Profissional
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          
-          {/* Seleção Dr / Dra */}
+          {/* Título */}
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Título profissional
-            </label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="titulo"
-                  value="Dr."
-                  checked={title === "Dr."}
-                  onChange={() => setTitle("Dr.")}
-                  className="accent-blue-500"
-                />
-                <span>Dr.</span>
-              </label>
-
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="titulo"
-                  value="Dra."
-                  checked={title === "Dra."}
-                  onChange={() => setTitle("Dra.")}
-                  className="accent-blue-500"
-                />
-                <span>Dra.</span>
-              </label>
+            <p className="text-sm text-slate-700 mb-1">Título</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setTitle("Dr.")}
+                className={`flex-1 py-1 rounded-md text-sm border ${
+                  title === "Dr."
+                    ? "bg-blue-500 text-white border-blue-500"
+                    : "bg-white text-slate-800 border-slate-300"
+                }`}
+              >
+                Dr.
+              </button>
+              <button
+                type="button"
+                onClick={() => setTitle("Dra.")}
+                className={`flex-1 py-1 rounded-md text-sm border ${
+                  title === "Dra."
+                    ? "bg-blue-500 text-white border-blue-500"
+                    : "bg-white text-slate-800 border-slate-300"
+                }`}
+              >
+                Dra.
+              </button>
             </div>
           </div>
 
-          {/* Nome do profissional */}
+          {/* Nome */}
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="block text-sm text-slate-700 mb-1">
               Nome do profissional
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ex.: Amanda Souza"
-              className="w-full px-3 py-2 rounded-md border border-slate-600 bg-slate-900/60 text-white"
+              className="w-full px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="Ex.: Eduardo Souza"
             />
           </div>
 
           {/* Consultório */}
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Número do consultório
+            <label className="block text-sm text-slate-700 mb-1">
+              Consultório
             </label>
             <select
-              value={consultorio}
-              onChange={(e) => setConsultorio(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-slate-600 bg-slate-900/60 text-white"
+              value={room}
+              onChange={(e) => setRoom(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
             >
-              <option value="1">Consultório 1</option>
-              <option value="2">Consultório 2</option>
-              <option value="3">Consultório 3</option>
-              <option value="4">Consultório 4</option>
-              <option value="5">Consultório 5</option>
-            </select>
-          </div>
-
-          <button
-            type="submit"
-            className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-md"
-          >
-            Entrar no painel
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
